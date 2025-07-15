@@ -1,0 +1,6 @@
+#!/bin/bash
+# 
+# 
+rm -rf /home/psciuto/deassimilate/test_target/*
+rm deassimilate.log
+

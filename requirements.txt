@@ -1,0 +1,6 @@
+#
+# Needed to build archive packages
+#
+build
+
+

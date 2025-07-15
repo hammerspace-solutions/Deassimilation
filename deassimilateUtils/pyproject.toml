@@ -1,0 +1,23 @@
+# -------------------------------------------------------------------------------
+# pyproject.toml
+#
+# Build the deassimilateUtils library
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deassimilateUtils"
+version = "1.0.0"
+description = "Library of utility routines for the deassimilate program"
+authors = [{name = "Michael Kade", email = "mike.kade@hammerspace.com"}]
+license = "MIT"
+license-files = ["LICENSE.txt"]
+readme = "README.txt"
+requires-python = ">=3.10"
+keywords = ["deassimilate utilities", "deassimilateUtils"]
+dependencies = ["requests", "dill", "humanize"]
+
+[project.urls]
+Homepage = "http://www.hammerspace.com"

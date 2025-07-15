@@ -1,0 +1,15 @@
+#
+# Needed to build archive packages
+#
+build
+
+# Needed for pytest
+
+pytest>=7.0
+pytest-cov>=4.0
+pytest-timeout>=2.3
+pytest-xdist>=3.0
+pytest-benchmark
+
+
+
