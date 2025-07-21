@@ -1,128 +1,96 @@
-# WARNINGS
+# 🧩 Deassimilation
 
-This script sets up NFS mounts and must be run as root and have RW access to
-both the DataSphere share and the storage volume share.
+Deassimilation is a Python utility to reverse the Hammerspace assimilation process by recreating directory structures and content from a DataSphere share onto a target storage volume, using NFS mounts and optional multiprocessing.
 
-It should not be run on the DataSphere or DSX nodes directly.
-Please run it on a throw away NFS 4.2 capable client, container or VM are
-great.
+It connects to a Hammerspace Anvil node via its REST API to list volumes and shares, mounts the selected share and volume, and deassimilates files (hardlinks, symlinks, copies) back into a native filesystem layout.
 
-If running deassim against an active production system, be mindful of
-the number of jobs launched in parallel with the --numjobs flag.  Script
-defaults to 128 outstanding operations.  This could adversely affect other
-client's latency on either the DataSphere OR the V3 storage volume system.  If
-in doubt, do some short test runs and find an optimal --numjobs.
+## 🚀 Key Features
 
+- REST API Integration: Queries Anvil for storage volumes and shares.
+- Automated NFS Mounting: Mounts DataSphere share (NFSv4.2) and storage volume (NFSv3).
+- Multiprocessing: Parallel file processing with configurable worker count.
+- Operation Modes: Supports copy, link, and symlink deassimilation.
+- Verification & Reporting: Optional size verification; directory/file statistics.
+- Configurable Logging: Adjustable log levels for debugging or production use.
 
-# Install dependencies:
+## 🛠️ Prerequisites
 
-* Debian Stretch (9): sudo apt-get install python-requests-toolbelt
-* RHEL/Centos 7: ???
+- Python 3.6+
+- root privileges (for mounting/unmounting NFS).
+- python-requests-toolbelt (e.g., apt-get install python-requests-toolbelt).
+- Network access to the DataSphere Anvil node and storage exports.
 
-# Running
+## ⚙️ Installation
 
-The only required parameter is "--ds <datasphere_hostname_or_ip>" everything
-else will be looked up and prompted for.
-```
-sudo ./deassimilate.py --ds example.org
-```
-
-To run in a more automated fashion, the minimum set of command line arguments
-are the following.  volid and shareid can be found using share-list and
-volume-list as an Admin user on the DataSphere ssh cli, or by running the
-script and noting the choices made.
-```sh
-sudo ./deassimilate.py --ds example.org --authfile auth --volid 10 --shareid 3
-```
-
-There are other options as well.  See the --help output for more control over the process.
-
-While the script is operating it will output a stream of status characters
-similar to "s-s+ss-s-++sssssssssss-s-++ss---s-+-".
-* +: Additional directory queued for the worker pool to process
-* -: Queued directory completed processing
-* s: Maximum amount of work already queued, not doing any work this cycle
-
-
-# Sample auth file
-The auth file is just a text file with the DataSphere username on the first
-line and password on the second line.  On a clean install the file would look like this:
+Do the following steps to install the software.
 
 ```
-admin
-admin
+git clone https://github.com/hammerspace-solutions/Deassimilation.git
+cd Deassimilation
+./build-deassimilation.sh
+source .venv/bin/activate
 ```
 
+## 🧰 Usage
 
-# Post deassimilation
+Run the script with the Anvil host specified. You must supply either --list-volumes to enumerate choices, or both --volid and --shareid to perform deassimilation:
 
-XXX Add verify steps
+### First Pass
 
-XXX Add big warning and data deletion step
+```deassimilate --host anvil.example.com --list-volumes
+```
 
+Write down the matching share and volume ID's
 
-# Limitations
+### Production Pass
 
-Can't set the ctime for any files. Not allowed by system API.  atime/mtime are replicated.
-* Unix ctime = metadata last change time
-* Windows ctime = file create time
+```
+deassimilate.py --host anvil.example.com --volid 10 --shareid 3 --mntdir /mnt/deassim --numjobs 50
+```
 
-Can't set atime/mtime on symlinks.  Not allowed by system API, no lutime
+The volid and shareid should match the volume and share returned from the first pass.
 
-Can't set mode bits (permissions) specific to symlinks under linux.  All symlinks are lrwxrwxrwx
+## 🔧 Command-Line Arguments
 
-# TODO
-* Verify only mode
-  * Stage 1 verification, compare two live trees, filenames, types, attributes, etc.
-  * Stage 2 verification, log all files / attributes / etc, able to run
-    verification after the original files (assim verify) or the PrimaryData
-    directory (deassim) is deleted
-  * Stage 3 verification, Don't get blamed in the future for existing data corruption.
-    * Make sure files are readable,
-    * log checksums of all files.
-    * Should work only in instance files, or on source files post assimilation
-      completion.
-    * Make sure to restore atime after reading.
-* Support attributes (lsattr)?  Getting error from lsattr on DataSphere NFSv4.2 mount...  Or on DSXv3 mount.
-  * lsattr: Inappropriate ioctl for device While reading flags on dir00000000/dir00000000/file00000001
-* Windows Support
-  * Setting Windows ACE / ACLs, use smbcacls
-  * Windows special link file type?  Will these just work?
-  * Other?
-* Finish up the 'fixup' generator.  Generate a shell script that will fix up
-  any items that had errors on initial pass without having to do full deassim
-  pass.
-* Support 'other' file types
-  * Device files (char / block)
-  * Pipe files
-  * Socket files
-* Harden main code path
-  * Catch exceptions, log and retry
-    * os.link, os.symlink, os.lstat, os.readlink, os.lchown, os.chmod, os.utime
-  * Troublesome NFS servers (DataSphere and V3)
-    * Fail to mount
-    * Only allow RO access
-    * Not resonding
-    * Network down mid test
-    * Slow
-* Testing
-  * Need to test against larger file sets (1 million tested so far)
-  * Test with 'funky' character names
-  * Can just a subtree of a share be deassimilated?
-* Generate 'cleanup' script to unmount the file systems and remove the mount directories.  Also for use with fixup and setup scripts.
-* Generate 'setup' script to create the mount directories and mount the file system (for use with fixup script)
-* Characterize likely hood of DOSing the DataSphere or the storage volume with default 128 worker jobs
-* during run files+dirs/s stats
-* post run perf stats summary
-* post run error summary
+| Option | Description |
+|----------------------------|-------------|
+| --version | Show program version and exit. |
+| --host <host> | Hostname or IP of the Hammerspace Anvil node (default: localhost). |
+| --username <user> | Anvil username (default: admin). |
+| --password <password> | Anvil password (will prompt if omitted). |
+| --list-volumes | List available volumes and shares, then exit. |
+| --volid <id> | Storage Volume ID to deassimilate to (internal ID). |
+| --shareid <id> | Share ID to deassimilate to (internal ID). |
+| --mntdir <path> | Base directory for NFS mountpoints (default: /mnt/deassim). |
+| --numjobs <n> | Number of parallel worker processes (default: 50). |
+| --single-process | Run in a single process (disable multiprocessing). |
+| --statistics | Print per-directory and per-file statistics. |
+| --totals | Print total counts of directories, files, and size. |
+| --log <level> | Set logging level (DEBUG, INFO, WARNING, ERROR; default: INFO). |
 
+## ⚠️ Warnings
 
-# Done
+- This script requires root and NFS write access to both the Anvil and storage volumes.
+- Avoid running directly on the Anvil or DSX nodes—use a separate NFS-capable client or VM.
+- High parallelism (--numjobs) may impact storage performance; test for optimal value.
 
-* Basic Functionality of deassim of normal from any v4.2 supported client
-* Integrate directly with DataSphere for needed config data
-* Easy to use UI, only requires end user pass in target DataSphere host name, prompts for remainder of needed details
-* Power user UI, all options allowed to be set by command line for no interaction
-  * $ sudo ./deassimilate.py --ds ds.example.org --authfile auth --volid 10 --shareid 3
-* Strict root only permissions on temporary mount directories
-* Support Symlinks
+## 📌 Known Limitations
+
+- Cannot preserve ctime or symlink-specific metadata due to API/NFS restrictions.
+- No built-in checksum validation (beyond size) or resume capability.
+- Device files, pipes, sockets, and Windows ACLs are not supported.
+
+## 🧭 Roadmap
+
+- Add checksum-based verification and resume support.
+- Implement fix-up script generation for error recovery.
+- Enhance metadata fidelity (xattrs, POSIX permissions).
+- Web UI or dry-run report mode.
+
+## 🤝 Contributing
+
+Contributions welcome! Fork the repo, create feature branches, and open pull requests. Please open issues to discuss major changes.
+
+## 📜 License
+
+This project is licensed under the MIT License. See LICENSE for details.
