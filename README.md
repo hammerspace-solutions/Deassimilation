@@ -37,7 +37,8 @@ Run the script with the Anvil host specified. You must supply either --list-volu
 
 ### First Pass
 
-```deassimilate --host anvil.example.com --list-volumes
+```
+deassimilate --host anvil.example.com --list-volumes
 ```
 
 Write down the matching share and volume ID's
